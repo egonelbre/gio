@@ -25,10 +25,10 @@ func (col RGBA) Float32() (r, g, b, a float32) {
 // SRGBA converts from linear to sRGB color space.
 func (col RGBA) SRGB() color.RGBA {
 	return color.RGBA{
-		R: uint8(linearTosRGB(col.R)*255 + .5),
-		G: uint8(linearTosRGB(col.G)*255 + .5),
-		B: uint8(linearTosRGB(col.B)*255 + .5),
-		A: uint8(col.A*255 + .5),
+		R: uint8(linearTosRGB(col.R)*255 + 0.5),
+		G: uint8(linearTosRGB(col.G)*255 + 0.5),
+		B: uint8(linearTosRGB(col.B)*255 + 0.5),
+		A: uint8(col.A*255 + 0.5),
 	}
 }
 
