@@ -150,7 +150,7 @@ func (x *Context) Modifiers() key.Modifiers {
 	return mods
 }
 
-func (x *Context) DispatchKey(keyCode uint32) (events []event.Event) {
+func (x *Context) DispatchKey(keyCode uint32, state key.State) (events []event.Event) {
 	if x.state == nil {
 		return
 	}
@@ -163,6 +163,7 @@ func (x *Context) DispatchKey(keyCode uint32) (events []event.Event) {
 		cmd := key.Event{
 			Name:      name,
 			Modifiers: x.Modifiers(),
+			State:     state,
 		}
 		// Ensure that a physical backtab key is translated to
 		// Shift-Tab.
