@@ -1265,15 +1265,14 @@ func gradientSpaceTransform(clip image.Rectangle, off f32.Point, stop1, stop2 f3
 	d := stop2.Sub(stop1)
 	l := float32(math.Sqrt(float64(d.X*d.X + d.Y*d.Y)))
 	a := float32(math.Atan2(float64(-d.Y), float64(d.X)))
-
-	// TODO: optimize
-	zp := f32.Point{}
+	clipf := layout.FRect(clip)
 	return f32.Affine2D{}.
-		Scale(zp, layout.FPt(clip.Size())).            // scale to pixel space
-		Offset(zp.Sub(off).Add(layout.FPt(clip.Min))). // offset to clip space
-		Offset(zp.Sub(stop1)).                         // offset to first stop point
-		Rotate(zp, a).                                 // rotate to align gradient
-		Scale(zp, f32.Pt(1/l, 1/l))                    // scale gradient to right size
+		Scale(f32.Point{}, clipf.Size()).    // scale to pixel size
+		Offset(clipf.Min).                   // move to screen space
+		Offset(off.Mul(-1)).                 // adjust for off
+		Offset(stop1.Mul(-1)).               // move stop1 to (0,0)
+		Rotate(f32.Point{}, a).              // align stop1 to stop2 vector
+		Scale(f32.Point{}, f32.Pt(1/l, 1/l)) // scale gradient to correct size
 }
 
 // clipSpaceTransform returns the scale and offset that transforms the given

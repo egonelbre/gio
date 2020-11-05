@@ -237,23 +237,40 @@ var gradients = []Gradient{
 }
 
 func TestLinearGradient(t *testing.T) {
-	t.Skip("linear gradients don't support transformations")
-
+	const halfpx = 0.5
 	const gradienth = 8
 	// 0.5 offset from ends to ensure that the center of the pixel
 	// aligns with gradient from and to colors.
-	pixelAligned := f32.Rect(0.5, 0, 127.5, gradienth)
-	samples := []int{0, 12, 32, 64, 96, 115, 127}
+
+	stop1, stop2 := f32.Pt(32+halfpx, 4), f32.Pt(96-halfpx, 4)
+	clipRange := f32.Rect(16, 0, 112, gradienth)
+
+	type Sample struct {
+		x int
+		p float32
+	}
+
+	samples := []Sample{
+		{x: 24, p: 0},
+		{x: 32, p: 0},
+		{x: 48, p: 0.25},
+		{x: 64, p: 0.5},
+		{x: 80, p: 0.75},
+		{x: 96, p: 1},
+		{x: 104, p: 1},
+	}
 
 	run(t, func(ops *op.Ops) {
-		gr := f32.Rect(0, 0, 128, gradienth)
-		for _, g := range gradients {
+		for i, g := range gradients {
+			st := op.Push(ops)
+			op.Affine(f32.Affine2D{}.Offset(f32.Pt(0, float32(i)*gradienth))).Add(ops)
 			paint.LinearGradientOp{
-				Stop1:  f32.Pt(gr.Min.X, gr.Min.Y),
+				Stop1:  stop1,
 				Color1: g.From,
-				Stop2:  f32.Pt(gr.Max.X, gr.Min.Y),
+				Stop2:  stop2,
 				Color2: g.To,
 			}.Add(ops)
+<<<<<<< HEAD
 			st := op.Save(ops)
 			clip.RRect{Rect: gr}.Add(ops)
 			op.Affine(f32.Affine2D{}.Offset(pixelAligned.Min)).Add(ops)
@@ -270,8 +287,20 @@ func TestLinearGradient(t *testing.T) {
 			for _, p := range samples {
 				exp := lerp(from, to, float32(p)/float32(r.img.Bounds().Dx()-1))
 				r.expect(p, int(gr.Min.Y+gradienth/2), f32color.NRGBAToRGBA(exp.SRGB()))
+=======
+			clip.RRect{Rect: clipRange}.Add(ops)
+			paint.PaintOp{}.Add(ops)
+			st.Pop()
+		}
+	}, func(r result) {
+		for i, g := range gradients {
+			from := f32color.RGBAFromSRGB(g.From)
+			to := f32color.RGBAFromSRGB(g.To)
+			for _, s := range samples {
+				exp := lerp(from, to, s.p)
+				r.expect(s.x, int(i*gradienth+gradienth/2), exp.SRGB())
+>>>>>>> 7184f65 (gpu: fix linear gradient)
 			}
-			gr = gr.Add(f32.Pt(0, gradienth))
 		}
 	})
 }
@@ -322,6 +351,56 @@ func TestLinearGradientAngled(t *testing.T) {
 		paint.PaintOp{}.Add(ops)
 		st.Load()
 	}, func(r result) {})
+}
+
+func TestLinearGradientStar(t *testing.T) {
+	run(t, func(ops *op.Ops) {
+		center := f32.Pt(64, 64)
+		const N = 32
+		for i := 0; i < N; i++ {
+			stack := op.Push(ops)
+			paint.LinearGradientOp{
+				Stop1:  f32.Pt(72, 0),
+				Color1: colornames.Red,
+				Stop2:  f32.Pt(128, 0),
+				Color2: colornames.Blue,
+			}.Add(ops)
+			clip.Rect(image.Rect(72, 62, 128, 66)).Add(ops)
+			paint.PaintOp{}.Add(ops)
+			stack.Pop()
+
+			op.Affine(f32.Affine2D{}.Rotate(center, 2*math.Pi/N)).Add(ops)
+		}
+	}, func(r result) {
+	})
+}
+
+func TestLinearGradientTransformedRotated(t *testing.T) {
+	run(t, func(ops *op.Ops) {
+		op.Affine(f32.Affine2D{}.Rotate(f32.Pt(64, 64), math.Pi/2)).Add(ops)
+
+		paint.LinearGradientOp{
+			Stop1:  f32.Pt(0, 0),
+			Color1: colornames.Black,
+			Stop2:  f32.Pt(128, 128),
+			Color2: colornames.White,
+		}.Add(ops)
+		paint.PaintOp{}.Add(ops)
+
+		stack := op.Push(ops)
+		paint.ColorOp{Color: colornames.Red}.Add(ops)
+		clip.Rect(image.Rect(0, 0, 8, 8)).Add(ops)
+		paint.PaintOp{}.Add(ops)
+		stack.Pop()
+
+		stack = op.Push(ops)
+		paint.ColorOp{Color: colornames.Green}.Add(ops)
+		clip.Rect(image.Rect(120, 120, 128, 128)).Add(ops)
+		paint.PaintOp{}.Add(ops)
+		stack.Pop()
+
+	}, func(r result) {
+	})
 }
 
 // lerp calculates linear interpolation with color b and p.
