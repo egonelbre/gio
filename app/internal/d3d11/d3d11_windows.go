@@ -345,6 +345,12 @@ type _ID3D11VertexShader struct {
 	}
 }
 
+type _ID3D11ComputeShader struct {
+	vtbl *struct {
+		_IUnknownVTbl
+	}
+}
+
 type _ID3D11RasterizerState struct {
 	vtbl *struct {
 		_IUnknownVTbl
@@ -781,6 +787,23 @@ func (d *_ID3D11Device) CreateVertexShader(bytecode []byte) (*_ID3D11VertexShade
 	return shader, nil
 }
 
+func (d *_ID3D11Device) CreateComputeShader(shaderBytecode []byte) (*_ID3D11ComputeShader, error) {
+	var shader *_ID3D11ComputeShader
+	r, _, _ := syscall.Syscall6(
+		d.vtbl.CreateComputeShader,
+		4,
+		uintptr(unsafe.Pointer(&shaderBytecode[0])),
+		uintptr(len(shaderBytecode)),
+		uintptr(unsafe.Pointer(nil)),
+		uintptr(unsafe.Pointer(&shader)),
+		0, 0,
+	)
+	if r != 0 {
+		return nil, ErrorCode{Name: "ID3D11CreateComputeShader", Code: uint32(r)}
+	}
+	return shader, nil
+}
+
 func (d *_ID3D11Device) CreateShaderResourceViewTEX2D(res *_ID3D11Resource, desc *_D3D11_SHADER_RESOURCE_VIEW_DESC_TEX2D) (*_ID3D11ShaderResourceView, error) {
 	var resView *_ID3D11ShaderResourceView
 	r, _, _ := syscall.Syscall6(
@@ -1118,6 +1141,54 @@ func (c *_ID3D11DeviceContext) PSSetSamplers(startSlot uint32, s *_ID3D11Sampler
 func (c *_ID3D11DeviceContext) PSSetShader(s *_ID3D11PixelShader) {
 	syscall.Syscall6(
 		c.vtbl.PSSetShader,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		uintptr(unsafe.Pointer(s)),
+		0, // ppClassInstances
+		0, // NumClassInstances
+		0, 0,
+	)
+}
+
+func (c *_ID3D11DeviceContext) CSSetConstantBuffers(b *_ID3D11Buffer) {
+	syscall.Syscall6(
+		c.vtbl.CSSetConstantBuffers,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		0, // StartSlot
+		1, // NumBuffers
+		uintptr(unsafe.Pointer(&b)),
+		0, 0,
+	)
+}
+
+func (c *_ID3D11DeviceContext) CSSetShaderResources(startSlot uint32, s *_ID3D11ShaderResourceView) {
+	syscall.Syscall6(
+		c.vtbl.CSSetShaderResources,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		uintptr(startSlot),
+		1, // NumViews
+		uintptr(unsafe.Pointer(&s)),
+		0, 0,
+	)
+}
+
+func (c *_ID3D11DeviceContext) CSSetSamplers(startSlot uint32, s *_ID3D11SamplerState) {
+	syscall.Syscall6(
+		c.vtbl.CSSetSamplers,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		uintptr(startSlot),
+		1, // NumSamplers
+		uintptr(unsafe.Pointer(&s)),
+		0, 0,
+	)
+}
+
+func (c *_ID3D11DeviceContext) CSSetShader(s *_ID3D11ComputeShader) {
+	syscall.Syscall6(
+		c.vtbl.CSSetShader,
 		4,
 		uintptr(unsafe.Pointer(c)),
 		uintptr(unsafe.Pointer(s)),
