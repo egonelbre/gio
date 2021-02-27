@@ -15,7 +15,7 @@ import (
 	gunsafe "gioui.org/internal/unsafe"
 )
 
-const debug = false
+const debug = true
 
 type Device struct {
 	dev         *_ID3D11Device

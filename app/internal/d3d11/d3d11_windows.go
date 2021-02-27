@@ -4,6 +4,7 @@ package d3d11
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"syscall"
 	"unsafe"
@@ -788,6 +789,7 @@ func (d *_ID3D11Device) CreateVertexShader(bytecode []byte) (*_ID3D11VertexShade
 }
 
 func (d *_ID3D11Device) CreateComputeShader(shaderBytecode []byte) (*_ID3D11ComputeShader, error) {
+	ioutil.WriteFile(`F:\code\gio\shader.bytecode`, shaderBytecode, 0644)
 	var shader *_ID3D11ComputeShader
 	r, _, _ := syscall.Syscall6(
 		d.vtbl.CreateComputeShader,

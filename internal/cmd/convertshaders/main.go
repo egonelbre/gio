@@ -438,7 +438,7 @@ func compileHLSL_DXC(tmp, path, src, entry, profile string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
 	dxc.Stderr = &stderr
 	dxc.Stdout = &stdout
-	dxc.Args = append(dxc.Args, "-Fo", dxcOutput, "-T", profile, "-Qstrip_reflect", "-E", entry, dxcInput)
+	dxc.Args = append(dxc.Args, "-Fo", dxcOutput, "-T", profile, "-E", entry, dxcInput)
 	if err := dxc.Run(); err != nil {
 		info := ""
 		if runtime.GOOS != "windows" {
