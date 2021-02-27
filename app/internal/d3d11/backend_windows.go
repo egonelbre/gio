@@ -75,6 +75,10 @@ type Program struct {
 		shader   *_ID3D11PixelShader
 		uniforms *Buffer
 	}
+	comp struct {
+		shader   *_ID3D11ComputeShader
+		uniforms *Buffer
+	}
 }
 
 type Framebuffer struct {
@@ -251,12 +255,16 @@ func NewBackend(d *Device) (*Backend, error) {
 	if d.floatFormat != 0 {
 		caps.Features |= backend.FeatureFloatRenderTargets
 	}
+
 	switch {
 	case d.featLvl >= _D3D_FEATURE_LEVEL_11_0:
 		caps.MaxTextureSize = 16384
+		// Direct3D 11 devices (D3D_FEATURE_LEVEL_11_0) are required to support Compute Shader model 5.0.
+		caps.Features |= backend.FeatureCompute
 	case d.featLvl >= _D3D_FEATURE_LEVEL_9_3:
 		caps.MaxTextureSize = 4096
 	}
+
 	b := &Backend{dev: d, caps: caps}
 	// Disable backface culling to match OpenGL.
 	state, err := b.dev.dev.CreateRasterizerState(&_D3D11_RASTERIZER_DESC{
@@ -523,7 +531,13 @@ func (b *Backend) NewImmutableBuffer(typ backend.BufferBinding, data []byte) (ba
 }
 
 func (b *Backend) NewComputeProgram(shader backend.ShaderSources) (backend.Program, error) {
-	panic("not implemented")
+	cs, err := b.dev.dev.CreateComputeShader(shader.HLSL)
+	if err != nil {
+		return nil, err
+	}
+	p := &Program{backend: b}
+	p.comp.shader = cs
+	return p, nil
 }
 
 func (b *Backend) NewProgram(vertexShader, fragmentShader backend.ShaderSources) (backend.Program, error) {
@@ -576,13 +590,23 @@ func (b *Backend) DrawElements(mode backend.DrawMode, off, count int) {
 
 func (b *Backend) prepareDraw(mode backend.DrawMode) {
 	if p := b.prog; p != nil {
-		b.dev.ctx.VSSetShader(p.vert.shader)
-		b.dev.ctx.PSSetShader(p.frag.shader)
-		if buf := p.vert.uniforms; buf != nil {
-			b.dev.ctx.VSSetConstantBuffers(buf.buf)
+		if p.vert.shader != nil {
+			b.dev.ctx.VSSetShader(p.vert.shader)
+			if buf := p.vert.uniforms; buf != nil {
+				b.dev.ctx.VSSetConstantBuffers(buf.buf)
+			}
 		}
-		if buf := p.frag.uniforms; buf != nil {
-			b.dev.ctx.PSSetConstantBuffers(buf.buf)
+		if p.frag.shader != nil {
+			b.dev.ctx.PSSetShader(p.frag.shader)
+			if buf := p.frag.uniforms; buf != nil {
+				b.dev.ctx.PSSetConstantBuffers(buf.buf)
+			}
+		}
+		if p.comp.shader != nil {
+			b.dev.ctx.CSSetShader(p.comp.shader)
+			if buf := p.comp.uniforms; buf != nil {
+				b.dev.ctx.CSSetConstantBuffers(buf.buf)
+			}
 		}
 	}
 	var topology uint32
@@ -719,10 +743,18 @@ func (b *Backend) BindProgram(prog backend.Program) {
 }
 
 func (p *Program) Release() {
-	_IUnknownRelease(unsafe.Pointer(p.vert.shader), p.vert.shader.vtbl.Release)
-	_IUnknownRelease(unsafe.Pointer(p.frag.shader), p.frag.shader.vtbl.Release)
-	p.vert.shader = nil
-	p.frag.shader = nil
+	if p.vert.shader != nil {
+		_IUnknownRelease(unsafe.Pointer(p.vert.shader), p.vert.shader.vtbl.Release)
+		p.vert.shader = nil
+	}
+	if p.frag.shader != nil {
+		_IUnknownRelease(unsafe.Pointer(p.frag.shader), p.frag.shader.vtbl.Release)
+		p.frag.shader = nil
+	}
+	if p.comp.shader != nil {
+		_IUnknownRelease(unsafe.Pointer(p.comp.shader), p.comp.shader.vtbl.Release)
+		p.comp.shader = nil
+	}
 }
 
 func (p *Program) SetStorageBuffer(binding int, buffer backend.Buffer) {
@@ -735,6 +767,10 @@ func (p *Program) SetVertexUniforms(buf backend.Buffer) {
 
 func (p *Program) SetFragmentUniforms(buf backend.Buffer) {
 	p.frag.uniforms = buf.(*Buffer)
+}
+
+func (p *Program) SetComputeUniforms(buf backend.Buffer) {
+	p.comp.uniforms = buf.(*Buffer)
 }
 
 func (b *Backend) BindVertexBuffer(buf backend.Buffer, stride, offset int) {
