@@ -345,6 +345,12 @@ type VertexShader struct {
 	}
 }
 
+type ComputeShader struct {
+	Vtbl *struct {
+		_IUnknownVTbl
+	}
+}
+
 type RasterizerState struct {
 	Vtbl *struct {
 		_IUnknownVTbl
@@ -781,6 +787,24 @@ func (d *Device) CreateVertexShader(bytecode []byte) (*VertexShader, error) {
 	return shader, nil
 }
 
+func (d *Device) CreateComputeShader(shaderBytecode []byte) (*ComputeShader, error) {
+	var shader *ComputeShader
+	r, _, _ := syscall.Syscall6(
+		d.Vtbl.CreateComputeShader,
+		5,
+		uintptr(unsafe.Pointer(d)),
+		uintptr(unsafe.Pointer(&shaderBytecode[0])),
+		uintptr(len(shaderBytecode)),
+		0, // pClassLinkage
+		uintptr(unsafe.Pointer(&shader)),
+		0,
+	)
+	if r != 0 {
+		return nil, ErrorCode{Name: "CreateComputeShader", Code: uint32(r)}
+	}
+	return shader, nil
+}
+
 func (d *Device) CreateShaderResourceViewTEX2D(res *Resource, desc *SHADER_RESOURCE_VIEW_DESC_TEX2D) (*ShaderResourceView, error) {
 	var resView *ShaderResourceView
 	r, _, _ := syscall.Syscall6(
@@ -1140,6 +1164,54 @@ func (c *DeviceContext) PSSetSamplers(startSlot uint32, s *SamplerState) {
 func (c *DeviceContext) PSSetShader(s *PixelShader) {
 	syscall.Syscall6(
 		c.Vtbl.PSSetShader,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		uintptr(unsafe.Pointer(s)),
+		0, // ppClassInstances
+		0, // NumClassInstances
+		0, 0,
+	)
+}
+
+func (c *DeviceContext) CSSetConstantBuffers(b *Buffer) {
+	syscall.Syscall6(
+		c.Vtbl.CSSetConstantBuffers,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		0, // StartSlot
+		1, // NumBuffers
+		uintptr(unsafe.Pointer(&b)),
+		0, 0,
+	)
+}
+
+func (c *DeviceContext) CSSetShaderResources(startSlot uint32, s *ShaderResourceView) {
+	syscall.Syscall6(
+		c.Vtbl.CSSetShaderResources,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		uintptr(startSlot),
+		1, // NumViews
+		uintptr(unsafe.Pointer(&s)),
+		0, 0,
+	)
+}
+
+func (c *DeviceContext) CSSetSamplers(startSlot uint32, s *SamplerState) {
+	syscall.Syscall6(
+		c.Vtbl.CSSetSamplers,
+		4,
+		uintptr(unsafe.Pointer(c)),
+		uintptr(startSlot),
+		1, // NumSamplers
+		uintptr(unsafe.Pointer(&s)),
+		0, 0,
+	)
+}
+
+func (c *DeviceContext) CSSetShader(s *ComputeShader) {
+	syscall.Syscall6(
+		c.Vtbl.CSSetShader,
 		4,
 		uintptr(unsafe.Pointer(c)),
 		uintptr(unsafe.Pointer(s)),
