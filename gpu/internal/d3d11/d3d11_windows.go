@@ -75,6 +75,10 @@ type Program struct {
 		shader   *d3d11.PixelShader
 		uniforms *Buffer
 	}
+	comp struct {
+		shader   *d3d11.ComputeShader
+		uniforms *Buffer
+	}
 }
 
 type Framebuffer struct {
@@ -141,6 +145,7 @@ func newDirect3D11Device(api driver.Direct3D11) (driver.Device, error) {
 	switch {
 	case featLvl >= d3d11.FEATURE_LEVEL_11_0:
 		b.caps.MaxTextureSize = 16384
+		b.caps.Features |= driver.FeatureCompute
 	case featLvl >= d3d11.FEATURE_LEVEL_9_3:
 		b.caps.MaxTextureSize = 4096
 	}
@@ -209,6 +214,8 @@ func (b *Backend) NewTexture(format driver.TextureFormat, width, height int, min
 		d3dfmt = b.floatFormat
 	case driver.TextureFormatSRGB:
 		d3dfmt = d3d11.DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
+	case driver.TextureFormatRGBA8:
+		d3dfmt = d3d11.DXGI_FORMAT_R8G8B8A8_UNORM
 	default:
 		return nil, fmt.Errorf("unsupported texture format %d", format)
 	}
@@ -394,7 +401,13 @@ func (b *Backend) NewImmutableBuffer(typ driver.BufferBinding, data []byte) (dri
 }
 
 func (b *Backend) NewComputeProgram(shader driver.ShaderSources) (driver.Program, error) {
-	panic("not implemented")
+	cs, err := b.dev.CreateComputeShader([]byte(shader.HLSL))
+	if err != nil {
+		return nil, err
+	}
+	p := &Program{backend: b}
+	p.comp.shader = cs
+	return p, nil
 }
 
 func (b *Backend) NewProgram(vertexShader, fragmentShader driver.ShaderSources) (driver.Program, error) {
@@ -447,13 +460,23 @@ func (b *Backend) DrawElements(mode driver.DrawMode, off, count int) {
 
 func (b *Backend) prepareDraw(mode driver.DrawMode) {
 	if p := b.prog; p != nil {
-		b.ctx.VSSetShader(p.vert.shader)
-		b.ctx.PSSetShader(p.frag.shader)
-		if buf := p.vert.uniforms; buf != nil {
-			b.ctx.VSSetConstantBuffers(buf.buf)
+		if p.vert.shader != nil {
+			b.ctx.VSSetShader(p.vert.shader)
+			if buf := p.vert.uniforms; buf != nil {
+				b.ctx.VSSetConstantBuffers(buf.buf)
+			}
 		}
-		if buf := p.frag.uniforms; buf != nil {
-			b.ctx.PSSetConstantBuffers(buf.buf)
+		if p.frag.shader != nil {
+			b.ctx.PSSetShader(p.frag.shader)
+			if buf := p.frag.uniforms; buf != nil {
+				b.ctx.PSSetConstantBuffers(buf.buf)
+			}
+		}
+		if p.comp.shader != nil {
+			b.ctx.CSSetShader(p.comp.shader)
+			if buf := p.comp.uniforms; buf != nil {
+				b.ctx.CSSetConstantBuffers(buf.buf)
+			}
 		}
 	}
 	var topology uint32
@@ -541,7 +564,21 @@ func (b *Backend) BlendFunc(sfactor, dfactor driver.BlendFactor) {
 }
 
 func (b *Backend) BindImageTexture(unit int, tex driver.Texture, access driver.AccessBits, f driver.TextureFormat) {
-	panic("not implemented")
+	t := tex.(*Texture)
+	switch access {
+	case driver.AccessWrite:
+	case driver.AccessRead:
+	default:
+		panic("unsupported access bits")
+	}
+
+	switch f {
+	case driver.TextureFormatRGBA8:
+	default:
+		panic("unsupported format")
+	}
+
+	b.ctx.CSSetShaderResources(uint32(unit), t.resView)
 }
 
 func (b *Backend) MemoryBarrier() {
@@ -590,10 +627,18 @@ func (b *Backend) BindProgram(prog driver.Program) {
 }
 
 func (p *Program) Release() {
-	d3d11.IUnknownRelease(unsafe.Pointer(p.vert.shader), p.vert.shader.Vtbl.Release)
-	d3d11.IUnknownRelease(unsafe.Pointer(p.frag.shader), p.frag.shader.Vtbl.Release)
-	p.vert.shader = nil
-	p.frag.shader = nil
+	if p.vert.shader != nil {
+		d3d11.IUnknownRelease(unsafe.Pointer(p.vert.shader), p.vert.shader.Vtbl.Release)
+		p.vert.shader = nil
+	}
+	if p.frag.shader != nil {
+		d3d11.IUnknownRelease(unsafe.Pointer(p.frag.shader), p.frag.shader.Vtbl.Release)
+		p.frag.shader = nil
+	}
+	if p.comp.shader != nil {
+		d3d11.IUnknownRelease(unsafe.Pointer(p.comp.shader), p.comp.shader.Vtbl.Release)
+		p.comp.shader = nil
+	}
 }
 
 func (p *Program) SetStorageBuffer(binding int, buffer driver.Buffer) {
@@ -606,6 +651,10 @@ func (p *Program) SetVertexUniforms(buf driver.Buffer) {
 
 func (p *Program) SetFragmentUniforms(buf driver.Buffer) {
 	p.frag.uniforms = buf.(*Buffer)
+}
+
+func (p *Program) SetComputeUniforms(buf driver.Buffer) {
+	p.comp.uniforms = buf.(*Buffer)
 }
 
 func (b *Backend) BindVertexBuffer(buf driver.Buffer, stride, offset int) {
