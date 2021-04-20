@@ -29,9 +29,6 @@ void main()
 
 `,
 		GLSL130: `#version 130
-#ifdef GL_ARB_shading_language_420pack
-#extension GL_ARB_shading_language_420pack : require
-#endif
 
 in vec4 position;
 
@@ -42,9 +39,6 @@ void main()
 
 `,
 		GLSL150: `#version 150
-#ifdef GL_ARB_shading_language_420pack
-#extension GL_ARB_shading_language_420pack : require
-#endif
 
 in vec4 position;
 
@@ -81,9 +75,6 @@ void main()
 
 `,
 		GLSL130: `#version 130
-#ifdef GL_ARB_shading_language_420pack
-#extension GL_ARB_shading_language_420pack : require
-#endif
 
 out vec4 fragColor;
 
@@ -94,9 +85,6 @@ void main()
 
 `,
 		GLSL150: `#version 150
-#ifdef GL_ARB_shading_language_420pack
-#extension GL_ARB_shading_language_420pack : require
-#endif
 
 out vec4 fragColor;
 
@@ -167,9 +155,6 @@ void main()
 
 `,
 		GLSL130: `#version 130
-#ifdef GL_ARB_shading_language_420pack
-#extension GL_ARB_shading_language_420pack : require
-#endif
 
 void main()
 {
@@ -198,9 +183,6 @@ void main()
 
 `,
 		GLSL150: `#version 150
-#ifdef GL_ARB_shading_language_420pack
-#extension GL_ARB_shading_language_420pack : require
-#endif
 
 void main()
 {
